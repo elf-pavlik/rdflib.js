@@ -31,6 +31,8 @@
     "async": "^0.9.x",
     "jsonld": "^0.4.5",
     "n3": "^0.4.1",
+    "rdf-parser-jsonld": "^0.3.3",
+    "string-to-stream": "^1.1.0",
     "xmldom": "^0.1.22",
     "xmlhttprequest": "^1.7.0"
   },

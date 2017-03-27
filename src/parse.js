@@ -1,7 +1,6 @@
 module.exports = parse
 
 const BlankNode = require('./blank-node')
-const jsonld = require('jsonld')
 const Literal = require('./literal')
 const N3 = require('n3')  // @@ Goal: remove this dependency
 const N3Parser = require('./n3parser')
@@ -11,6 +10,9 @@ const RDFParser = require('./rdfxmlparser')
 const sparqlUpdateParser = require('./patch-parser')
 const Util = require('./util')
 
+const stringToStream = require('string-to-stream')
+const JsonLdParser = require('rdf-parser-jsonld')
+
 /**
  * Parse a string and put the result into the graph kb.
  * Normal method is sync.
@@ -18,6 +20,7 @@ const Util = require('./util')
  * Hence the mess below with executeCallback.
  */
 function parse (str, kb, base, contentType, callback) {
+  var parser
   contentType = contentType || 'text/turtle'
   try {
     if (contentType === 'text/n3' || contentType === 'text/turtle') {
@@ -25,7 +28,7 @@ function parse (str, kb, base, contentType, callback) {
       p.loadBuf(str)
       executeCallback()
     } else if (contentType === 'application/rdf+xml') {
-      var parser = new RDFParser(kb)
+      parser = new RDFParser(kb)
       parser.parse(Util.parseXML(str), base, kb.sym(base))
       executeCallback()
     } else if (contentType === 'application/xhtml+xml') {
@@ -37,24 +40,16 @@ function parse (str, kb, base, contentType, callback) {
     } else if (contentType === 'application/sparql-update') { // @@ we handle a subset
       sparqlUpdateParser(str, kb, base)
       executeCallback()
-    } else if (contentType === 'application/ld+json' ||
-               contentType === 'application/nquads' ||
+    } else if (contentType === 'application/ld+json') {
+      parser = new JsonLdParser()
+      kb.import(parser.import(stringToStream(str)))
+        .on('end', executeCallback)
+        .on('error', executeErrorCallback)
+    } else if (contentType === 'application/nquads' ||
                contentType === 'application/n-quads') {
       var n3Parser = N3.Parser()
       var triples = []
-      if (contentType === 'application/ld+json') {
-        var jsonDocument
-        try {
-          jsonDocument = JSON.parse(str)
-        } catch (parseErr) {
-          callback(parseErr, null)
-        }
-        jsonld.toRDF(jsonDocument,
-          {format: 'application/nquads'},
-          nquadCallback)
-      } else {
-        nquadCallback(null, str)
-      }
+      nquadCallback(null, str)
     } else {
       throw new Error("Don't know how to parse " + contentType + ' yet')
     }
